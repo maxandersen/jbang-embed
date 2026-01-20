@@ -43,6 +43,7 @@ jobs:
         with:
           name: myapp-content
           path: myapp
+          include-hidden-files: true
           if-no-files-found: error
 
   build:
@@ -91,6 +92,14 @@ jobs:
           npx --yes caxa --input . --output "${{ steps.env.outputs.OUTPUT_NAME }}" --no-include-node -- "{{caxa}}/jbang" "${{ steps.env.outputs.SCRIPT_REF }}"
 
           ls -la
+
+      - name: verify it can run
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd myapp
+          ./${{ steps.env.outputs.OUTPUT_NAME }}
+          echo "Successfully ran the executable"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
