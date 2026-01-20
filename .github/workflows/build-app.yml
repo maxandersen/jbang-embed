@@ -38,12 +38,18 @@ jobs:
           jbang wrapper install
           ls -la
 
+      - name: Tar myapp content (preserve permissions)
+        shell: bash
+        run: |
+          cd myapp
+          tar -czf ../myapp-content.tar.gz .
+          ls -lh ../myapp-content.tar.gz
+
       - name: Upload myapp content
         uses: actions/upload-artifact@v4
         with:
           name: myapp-content
-          path: myapp
-          include-hidden-files: true
+          path: myapp-content.tar.gz
           if-no-files-found: error
 
   build:
@@ -80,7 +86,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: myapp-content
-          path: myapp
+          path: .
+
+      - name: Untar myapp content (restore permissions)
+        shell: bash
+        run: |
+          mkdir -p myapp
+          tar -xzf myapp-content.tar.gz -C myapp
+          ls -la myapp
 
       - name: Build with caxa
         shell: bash
@@ -88,14 +101,8 @@ jobs:
           set -euo pipefail
           cd myapp
 
-          # On Windows, jbang can be run directly; on Linux/macOS, use sh to run the script
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            # Build native executable (platform-specific)
-            npx --yes caxa --input . --output "${{ steps.env.outputs.OUTPUT_NAME }}" --no-include-node -- "{{caxa}}/jbang" "${{ steps.env.outputs.SCRIPT_REF }}"
-          else
-            # Build native executable (platform-specific) - use sh to run jbang script
-            npx --yes caxa --input . --output "${{ steps.env.outputs.OUTPUT_NAME }}" --no-include-node -- "sh" "{{caxa}}/jbang" "${{ steps.env.outputs.SCRIPT_REF }}"
-          fi
+          # Build native executable (platform-specific)
+          npx --yes caxa --input . --output "${{ steps.env.outputs.OUTPUT_NAME }}" --no-include-node -- "{{caxa}}/jbang" "${{ steps.env.outputs.SCRIPT_REF }}"
 
           ls -la
 
