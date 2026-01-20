@@ -52,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
 
     steps:
       - name: Checkout
@@ -63,6 +63,10 @@ jobs:
         shell: bash
         run: |
           source .env
+          # Add .exe extension on Windows
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            OUTPUT_NAME="${OUTPUT_NAME}.exe"
+          fi
           echo "OUTPUT_NAME=${OUTPUT_NAME}" >> $GITHUB_OUTPUT
           echo "SCRIPT_REF=${SCRIPT_REF}" >> $GITHUB_OUTPUT
 
@@ -88,16 +92,7 @@ jobs:
 
           ls -la
 
-      - name: Upload artifact (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.env.outputs.OUTPUT_NAME }}-${{ runner.os }}-${{ runner.arch }}
-          path: myapp/${{ steps.env.outputs.OUTPUT_NAME }}.exe
-          if-no-files-found: error
-
-      - name: Upload artifact (non-Windows)
-        if: runner.os != 'Windows'
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.env.outputs.OUTPUT_NAME }}-${{ runner.os }}-${{ runner.arch }}
