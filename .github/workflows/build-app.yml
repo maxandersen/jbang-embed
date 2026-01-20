@@ -88,8 +88,14 @@ jobs:
           set -euo pipefail
           cd myapp
 
-          # Build native executable (platform-specific)
-          npx --yes caxa --input . --output "${{ steps.env.outputs.OUTPUT_NAME }}" --no-include-node -- "{{caxa}}/jbang" "${{ steps.env.outputs.SCRIPT_REF }}"
+          # On Windows, jbang can be run directly; on Linux/macOS, use sh to run the script
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            # Build native executable (platform-specific)
+            npx --yes caxa --input . --output "${{ steps.env.outputs.OUTPUT_NAME }}" --no-include-node -- "{{caxa}}/jbang" "${{ steps.env.outputs.SCRIPT_REF }}"
+          else
+            # Build native executable (platform-specific) - use sh to run jbang script
+            npx --yes caxa --input . --output "${{ steps.env.outputs.OUTPUT_NAME }}" --no-include-node -- "sh" "{{caxa}}/jbang" "${{ steps.env.outputs.SCRIPT_REF }}"
+          fi
 
           ls -la
 
