@@ -1,0 +1,105 @@
+name: Build caxa wrapper (JBang)
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    name: Prepare (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # JBang needs Java available
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup JBang
+        uses: jbangdev/setup-jbang@main
+
+      - name: Prepare myapp content
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p myapp
+          cd myapp
+          jbang wrapper install
+          ls -la
+
+      - name: Upload myapp content
+        uses: actions/upload-artifact@v4
+        with:
+          name: myapp-content
+          path: myapp
+          if-no-files-found: error
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read .env file
+        id: env
+        shell: bash
+        run: |
+          source .env
+          echo "OUTPUT_NAME=${OUTPUT_NAME}" >> $GITHUB_OUTPUT
+          echo "SCRIPT_REF=${SCRIPT_REF}" >> $GITHUB_OUTPUT
+
+      - name: Setup Node (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Download myapp content
+        uses: actions/download-artifact@v4
+        with:
+          name: myapp-content
+          path: myapp
+
+      - name: Build with caxa
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd myapp
+
+          # Build native executable (platform-specific)
+          npx --yes caxa --input . --output "${{ steps.env.outputs.OUTPUT_NAME }}" --no-include-node -- "{{caxa}}/jbang" "${{ steps.env.outputs.SCRIPT_REF }}"
+
+          ls -la
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.env.outputs.OUTPUT_NAME }}-${{ runner.os }}-${{ runner.arch }}
+          path: myapp/${{ steps.env.outputs.OUTPUT_NAME }}.exe
+          if-no-files-found: error
+
+      - name: Upload artifact (non-Windows)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.env.outputs.OUTPUT_NAME }}-${{ runner.os }}-${{ runner.arch }}
+          path: myapp/${{ steps.env.outputs.OUTPUT_NAME }}
+          if-no-files-found: error
